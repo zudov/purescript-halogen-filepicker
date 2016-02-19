@@ -3,6 +3,9 @@ module Halogen.FileDrop
   , initialState
   , defaultOptions
   , Query()
+  , setDragOver
+  , setFiles
+  , openFilePicker
   , State()
   , Options()
   ) where
@@ -26,7 +29,7 @@ import Halogen.Util (appendToBody, onLoad)
 import Halogen.HTML.Core (prop, propName, attrName)
 import Halogen.HTML.Indexed as H
 import Halogen.HTML.Events.Indexed.Extra as E
-import Halogen.HTML.Events.Handler (preventDefault, stopPropagation) as E
+import Halogen.HTML.Events.Handler (preventDefault, stopPropagation, EventHandler) as E
 import Halogen.HTML.Properties.Indexed.Extra as P
 import Halogen.HTML.CSS.Indexed (style) as P
 import Halogen.HTML.Events.Forms.Extra (onFilesChange, onFilesDrop) as E
@@ -45,11 +48,22 @@ import Unsafe.Coerce (unsafeCoerce)
 
 foreign import newMouseEvent :: EventType -> MouseEvent
 
+
 data Query a
   = OpenFilePicker a
-  | FilesChange FileList a
+  | SetFiles FileList a
   | SetUploadElement HTMLElement a
   | SetDragOver Boolean a
+
+setDragOver :: ∀ a. Boolean -> a -> Query a
+setDragOver = SetDragOver
+
+setFiles :: ∀ a. FileList -> a -> Query a
+setFiles = SetFiles
+
+openFilePicker :: ∀ a. a -> Query a
+openFilePicker = OpenFilePicker
+
 
 type State =
   { uploadElement :: Maybe HTMLElement
@@ -63,6 +77,7 @@ initialState options =
   , dragover: false
   , options
   }
+
 
 type Options
   = { view :: { dragover :: Boolean, multiple :: Boolean } -> ComponentHTML Query
@@ -81,23 +96,30 @@ defaultView
 defaultView { multiple, dragover } =
   H.div_
     [ H.button
-      [ E.onClick (E.input_ OpenFilePicker) ]
+      [ E.onClick (E.input_ openFilePicker) ]
       [ H.text if multiple
                then "Select a file"
                else "Select some files"
       ]
     , H.div
-        [ E.onDragEnter (E.input_ (SetDragOver true))
+        [ E.onDragEnter (\_ -> E.preventDefault
+                            *> E.stopPropagation
+                            $> action (setDragOver true))
         , E.onDragOver (\_ -> E.preventDefault
                            *> E.stopPropagation
-                           $> action (SetDragOver true))
-        , E.onDragExit (E.input_ (SetDragOver false))
-        , E.onFilesDrop (E.input FilesChange)
+                           $> action (setDragOver true))
+        , E.onDragExit (\_ -> E.preventDefault
+                           *> E.stopPropagation
+                           $> action (setDragOver false))
+        , E.onFilesDrop (\files -> E.preventDefault
+                                *> E.stopPropagation
+                                $> action (setFiles files))
         ]
         [ H.text (if dragover
                   then "DROP IT!"
                   else "Or just drop it here") ]
     ]
+
 
 ui :: ∀ m eff. (MonadEff (dom :: DOM, err :: EXCEPTION, console :: CONSOLE | eff) m)
    => Component State Query m
@@ -109,7 +131,7 @@ render state =
     [ H.input
       [ P.inputType P.InputFile
       , P.multiple state.options.multiple
-      , E.onFilesChange (E.input FilesChange)
+      , E.onFilesChange (E.input setFiles)
       , P.initializer (action <<< SetUploadElement)
       , P.style do
           CSS.display CSS.displayNone
@@ -129,9 +151,12 @@ eval (OpenFilePicker next) = next <$ do
              >>> dispatchEvent
                   (mouseEventToEvent (newMouseEvent EventTypes.click))
              >>> liftEff')
+
 eval (SetUploadElement element next) = next <$ do
   modify (_ { uploadElement = Just element })
-eval (FilesChange fileList next) = next <$ do
-  liftEff' $ logAny fileList
+
+eval (SetFiles files next) = next <$ do
+  liftEff' $ logAny files
+
 eval (SetDragOver dragover next) = next <$ do
   modify (_ { dragover = dragover })
