@@ -71,28 +71,33 @@ type Options
 
 defaultOptions :: Options
 defaultOptions
-  = { view: \({ multiple, dragover }) ->
-        H.div_
-          [ H.button
-            [ E.onClick (E.input_ OpenFilePicker) ]
-            [ H.text if multiple
-                     then "Select a file"
-                     else "Select some files"
-            ]
-          , H.div
-              [ E.onDragEnter (E.input_ (SetDragOver true))
-              , E.onDragOver (\_ -> E.preventDefault
-                                 *> E.stopPropagation
-                                 $> action (SetDragOver true))
-              , E.onDragExit (E.input_ (SetDragOver false))
-              , E.onFilesDrop (E.input FilesChange)
-              ]
-              [ H.text (if dragover
-                        then "DROP IT!"
-                        else "Or just drop it here") ]
-          ]
+  = { view: defaultView
     , multiple: true
     }
+
+defaultView
+  :: { dragover :: Boolean, multiple :: Boolean }
+  -> ComponentHTML Query
+defaultView { multiple, dragover } =
+  H.div_
+    [ H.button
+      [ E.onClick (E.input_ OpenFilePicker) ]
+      [ H.text if multiple
+               then "Select a file"
+               else "Select some files"
+      ]
+    , H.div
+        [ E.onDragEnter (E.input_ (SetDragOver true))
+        , E.onDragOver (\_ -> E.preventDefault
+                           *> E.stopPropagation
+                           $> action (SetDragOver true))
+        , E.onDragExit (E.input_ (SetDragOver false))
+        , E.onFilesDrop (E.input FilesChange)
+        ]
+        [ H.text (if dragover
+                  then "DROP IT!"
+                  else "Or just drop it here") ]
+    ]
 
 multiple :: ∀ r i. Boolean -> P.IProp (multiple :: P.I | r) i
 multiple = unsafeCoerce multiple'
