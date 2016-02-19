@@ -5,6 +5,8 @@ module Halogen.FileDrop
   , Query()
   , setDragOver
   , setFiles
+  , filesSelected
+  , filesDropped
   , openFilePicker
   , State()
   , Options()
@@ -41,6 +43,7 @@ import DOM.Event.Types (EventType, MouseEvent, mouseEventToEvent)
 import DOM.Event.EventTypes (click) as EventTypes
 import DOM.HTML.Types (HTMLElement)
 import DOM.File.Types (FileList())
+import DOM.File.FileList as FileList
 
 import CSS as CSS
 
@@ -52,6 +55,8 @@ foreign import newMouseEvent :: EventType -> MouseEvent
 data Query a
   = OpenFilePicker a
   | SetFiles FileList a
+  | FilesSelected FileList a
+  | FilesDropped FileList a
   | SetUploadElement HTMLElement a
   | SetDragOver Boolean a
 
@@ -61,6 +66,12 @@ setDragOver = SetDragOver
 setFiles :: ∀ a. FileList -> a -> Query a
 setFiles = SetFiles
 
+filesSelected :: ∀ a. FileList -> a -> Query a
+filesSelected = FilesSelected
+
+filesDropped :: ∀ a. FileList -> a -> Query a
+filesDropped = FilesDropped
+
 openFilePicker :: ∀ a. a -> Query a
 openFilePicker = OpenFilePicker
 
@@ -69,18 +80,23 @@ type State =
   { uploadElement :: Maybe HTMLElement
   , dragover :: Boolean
   , options :: Options
+  , files :: Maybe FileList
   }
 
 initialState :: Options -> State
 initialState options =
   { uploadElement: Nothing
   , dragover: false
+  , files: Nothing
   , options
   }
 
 
 type Options
-  = { view :: { dragover :: Boolean, multiple :: Boolean } -> ComponentHTML Query
+  = { view :: { dragover :: Boolean
+              , multiple :: Boolean
+              , files    :: Maybe FileList
+              } -> ComponentHTML Query
     , multiple :: Boolean
     }
 
@@ -91,9 +107,9 @@ defaultOptions
     }
 
 defaultView
-  :: { dragover :: Boolean, multiple :: Boolean }
+  :: { dragover :: Boolean, multiple :: Boolean, files :: Maybe FileList }
   -> ComponentHTML Query
-defaultView { multiple, dragover } =
+defaultView { multiple, dragover, files } =
   H.div_
     [ H.button
       [ E.onClick (E.input_ openFilePicker) ]
@@ -103,9 +119,13 @@ defaultView { multiple, dragover } =
       ]
     , H.div
         dropHandlers
-        [ H.text if dragover
-                 then "DROP IT!"
-                 else "Or just drop it here"
+        [ H.p_
+            [ H.text if dragover
+                     then "DROP IT!"
+                     else "Or just drop it here"
+            ]
+        , H.p_
+            [ H.text ("You selected " <> show (maybe 0 FileList.length files) <> " files") ]
         ]
     ]
 
@@ -126,7 +146,7 @@ dropHandlers =
   , E.onFilesDrop
       \files -> E.preventDefault
              *> E.stopPropagation
-             $> action (setFiles files)
+             $> action (filesDropped files)
   ]
 
 
@@ -140,7 +160,7 @@ render state =
     [ H.input
       [ P.inputType P.InputFile
       , P.multiple state.options.multiple
-      , E.onFilesChange (E.input setFiles)
+      , E.onFilesChange (E.input filesSelected)
       , P.initializer (action <<< SetUploadElement)
       , P.style do
           CSS.display CSS.displayNone
@@ -148,6 +168,7 @@ render state =
     , state.options.view
         { dragover: state.dragover
         , multiple: state.options.multiple
+        , files: state.files
         }
     ]
 
@@ -165,8 +186,10 @@ eval (SetUploadElement element next) = next <$ do
   modify (_ { uploadElement = Just element })
 
 eval (SetFiles files next) = next <$ do
-  modify (_ { dragover = false })
+  modify (_ { files = Just files })
   liftEff' $ logAny files
-
+eval (FilesDropped files next) = next <$ do
+  modify (_ { dragover = false })
+eval (FilesSelected _ next) = pure next
 eval (SetDragOver dragover next) = next <$ do
   modify (_ { dragover = dragover })
