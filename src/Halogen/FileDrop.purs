@@ -165,6 +165,7 @@ eval (SetUploadElement element next) = next <$ do
   modify (_ { uploadElement = Just element })
 
 eval (SetFiles files next) = next <$ do
+  modify (_ { dragover = false })
   liftEff' $ logAny files
 
 eval (SetDragOver dragover next) = next <$ do
