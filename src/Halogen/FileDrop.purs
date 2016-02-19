@@ -102,23 +102,32 @@ defaultView { multiple, dragover } =
                else "Select some files"
       ]
     , H.div
-        [ E.onDragEnter (\_ -> E.preventDefault
-                            *> E.stopPropagation
-                            $> action (setDragOver true))
-        , E.onDragOver (\_ -> E.preventDefault
-                           *> E.stopPropagation
-                           $> action (setDragOver true))
-        , E.onDragExit (\_ -> E.preventDefault
-                           *> E.stopPropagation
-                           $> action (setDragOver false))
-        , E.onFilesDrop (\files -> E.preventDefault
-                                *> E.stopPropagation
-                                $> action (setFiles files))
+        dropHandlers
+        [ H.text if dragover
+                 then "DROP IT!"
+                 else "Or just drop it here"
         ]
-        [ H.text (if dragover
-                  then "DROP IT!"
-                  else "Or just drop it here") ]
     ]
+
+dropHandlers :: ∀ r. Array (P.IProp r (Query Unit))
+dropHandlers =
+  [ E.onDragEnter
+      \_ -> E.preventDefault
+         *> E.stopPropagation
+         $> action (setDragOver true)
+  , E.onDragOver
+      \_ -> E.preventDefault
+         *> E.stopPropagation
+         $> action (setDragOver true)
+  , E.onDragExit
+      \_ -> E.preventDefault
+         *> E.stopPropagation
+         $> action (setDragOver false)
+  , E.onFilesDrop
+      \files -> E.preventDefault
+             *> E.stopPropagation
+             $> action (setFiles files)
+  ]
 
 
 ui :: ∀ m eff. (MonadEff (dom :: DOM, err :: EXCEPTION, console :: CONSOLE | eff) m)
