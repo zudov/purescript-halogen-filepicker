@@ -4,7 +4,6 @@ module Halogen.FileDrop
   , defaultOptions
   , Query()
   , setDragOver
-  , setFiles
   , filesSelected
   , filesDropped
   , openFilePicker
@@ -54,7 +53,6 @@ foreign import newMouseEvent :: EventType -> MouseEvent
 
 data Query a
   = OpenFilePicker a
-  | SetFiles FileList a
   | FilesSelected FileList a
   | FilesDropped FileList a
   | SetUploadElement HTMLElement a
@@ -62,9 +60,6 @@ data Query a
 
 setDragOver :: ∀ a. Boolean -> a -> Query a
 setDragOver = SetDragOver
-
-setFiles :: ∀ a. FileList -> a -> Query a
-setFiles = SetFiles
 
 filesSelected :: ∀ a. FileList -> a -> Query a
 filesSelected = FilesSelected
@@ -95,7 +90,6 @@ initialState options =
 type Options
   = { view :: { dragover :: Boolean
               , multiple :: Boolean
-              , files    :: Maybe FileList
               } -> ComponentHTML Query
     , multiple :: Boolean
     }
@@ -107,9 +101,9 @@ defaultOptions
     }
 
 defaultView
-  :: { dragover :: Boolean, multiple :: Boolean, files :: Maybe FileList }
+  :: { dragover :: Boolean, multiple :: Boolean }
   -> ComponentHTML Query
-defaultView { multiple, dragover, files } =
+defaultView { multiple, dragover } =
   H.div_
     [ H.button
       [ E.onClick (E.input_ openFilePicker) ]
@@ -124,8 +118,6 @@ defaultView { multiple, dragover, files } =
                      then "DROP IT!"
                      else "Or just drop it here"
             ]
-        , H.p_
-            [ H.text ("You selected " <> show (maybe 0 FileList.length files) <> " files") ]
         ]
     ]
 
@@ -168,7 +160,6 @@ render state =
     , state.options.view
         { dragover: state.dragover
         , multiple: state.options.multiple
-        , files: state.files
         }
     ]
 
@@ -184,10 +175,6 @@ eval (OpenFilePicker next) = next <$ do
 
 eval (SetUploadElement element next) = next <$ do
   modify (_ { uploadElement = Just element })
-
-eval (SetFiles files next) = next <$ do
-  modify (_ { files = Just files })
-  liftEff' $ logAny files
 eval (FilesDropped files next) = next <$ do
   modify (_ { dragover = false })
 eval (FilesSelected _ next) = pure next
