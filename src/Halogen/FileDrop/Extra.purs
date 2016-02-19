@@ -86,3 +86,23 @@ onFilesDrop f = unsafeCoerce onFilesDrop'
                 *> stopPropagation
                 *> (Just <$> f files))
         (unsafeReadTagged "FileList" =<< prop "files" (toForeign dataTransfer))
+
+module Halogen.HTML.Properties.Indexed.Extra
+  ( module Halogen.HTML.Properties.Indexed
+  , multiple
+  ) where
+
+import Prelude (($))
+import Data.Maybe (Maybe(..))
+
+import Halogen (Prop)
+import Halogen.HTML.Properties.Indexed as P
+import Halogen.HTML.Core (prop, propName, attrName)
+
+import Unsafe.Coerce (unsafeCoerce)
+
+multiple :: ∀ r i. Boolean -> P.IProp (multiple :: P.I | r) i
+multiple = unsafeCoerce multiple'
+  where
+    multiple' :: ∀ i. Boolean -> Prop i
+    multiple' = prop (propName "multiple") (Just $ attrName "multiple")

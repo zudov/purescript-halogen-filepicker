@@ -27,7 +27,7 @@ import Halogen.HTML.Core (prop, propName, attrName)
 import Halogen.HTML.Indexed as H
 import Halogen.HTML.Events.Indexed.Extra as E
 import Halogen.HTML.Events.Handler (preventDefault, stopPropagation) as E
-import Halogen.HTML.Properties.Indexed as P
+import Halogen.HTML.Properties.Indexed.Extra as P
 import Halogen.HTML.CSS.Indexed (style) as P
 import Halogen.HTML.Events.Forms.Extra (onFilesChange, onFilesDrop) as E
 
@@ -99,12 +99,6 @@ defaultView { multiple, dragover } =
                   else "Or just drop it here") ]
     ]
 
-multiple :: ∀ r i. Boolean -> P.IProp (multiple :: P.I | r) i
-multiple = unsafeCoerce multiple'
-  where
-    multiple' :: ∀ i. Boolean -> Prop i
-    multiple' = prop (propName "multiple") (Just $ attrName "multiple")
-
 ui :: ∀ m eff. (MonadEff (dom :: DOM, err :: EXCEPTION, console :: CONSOLE | eff) m)
    => Component State Query m
 ui = component render eval
@@ -114,7 +108,7 @@ render state =
   H.div_
     [ H.input
       [ P.inputType P.InputFile
-      , multiple state.options.multiple
+      , P.multiple state.options.multiple
       , E.onFilesChange (E.input FilesChange)
       , P.initializer (action <<< SetUploadElement)
       , P.style do
