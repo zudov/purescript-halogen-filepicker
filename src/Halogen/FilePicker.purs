@@ -33,6 +33,9 @@ import DOM (DOM)
 
 import Unsafe.Coerce (unsafeCoerce)
 
+-- | Creates an `input` with `type=file`. You can pass it anything
+-- | that you pass to normal `input` + a few additional properties that are
+-- | defined in this module.
 filePicker
   :: ∀ p f.
      Array (P.IProp FilePickerProps (f Unit))
@@ -41,12 +44,15 @@ filePicker props =
   H.input
     ([ P.inputType P.InputFile ] <> unsafeCoerce props)
 
+-- | TODO: Move to purescript-halogen
 multiple :: ∀ r i. Boolean -> P.IProp (multiple :: P.I | r) i
 multiple = unsafeCoerce multiple'
   where
     multiple' :: ∀ a. Boolean -> Prop a
     multiple' = prop (propName "multiple") (Just $ attrName "multiple")
 
+-- | Gives a `FileList` to the handler every time the user selects the files from
+-- | the file picker.
 onFilesChange
   :: ∀ r i.
      (FileList -> EventHandler i)
@@ -60,10 +66,13 @@ onFilesChange f = unsafeCoerce onFilesChange'
       fileList = unsafeReadTagged "FileList" =<< Foreign.prop "files" (toForeign target)
 
 
+-- | A reference to the `input` element which can be used to open file picker
+-- | programatically.
 newtype FilePicker
   = FilePicker HTMLElement
 
 
+-- | An initializer which allows to receive a reference to the file picker.
 initFilePicker
   :: ∀ r i.
      (FilePicker -> i)
@@ -73,6 +82,7 @@ initFilePicker f = P.initializer (f <<< FilePicker)
 runFilePicker :: FilePicker -> HTMLElement
 runFilePicker (FilePicker element) = element
 
+-- | Opens a file picker by dispatching a 'click' event to a referenced input element.
 openFilePicker :: ∀ eff. FilePicker -> Eff (dom :: DOM, err :: EXCEPTION | eff) Unit
 openFilePicker = runFilePicker
    >>> htmlElementToEventTarget
