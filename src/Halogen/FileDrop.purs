@@ -1,182 +1,65 @@
-module Halogen.FileDrop
-  ( ui
-  , initialState
-  , defaultOptions
-  , Query()
-  , setDragOver
-  , filesSelected
-  , filesDropped
-  , openFilePicker
-  , State()
-  , Options()
-  ) where
+module Halogen.FileDrop where
 
+import Prelude ((<$>), pure, const)
 
-import Prelude
+import Control.Apply ((*>))
+import Control.Bind ((=<<))
+import Data.Either (either)
+import Data.Maybe (Maybe(..))
+import Data.Foreign (unsafeReadTagged, toForeign)
+import Data.Foreign.Index (prop)
 
-import Control.Apply
-import Control.Monad.Aff (Aff(), runAff)
-import Control.Monad.Eff (Eff())
-import Control.Monad.Eff.Class (class MonadEff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Console.Unsafe (logAny)
-import Control.Monad.Eff.Exception (throwException, EXCEPTION)
-import Data.Functor
-import Data.Maybe
-import Data.Foldable
+import Halogen.HTML.Core (eventName, handler, handler')
+import Halogen.HTML.Events.Handler (EventHandler(), preventDefault, stopPropagation)
+import Halogen.HTML.Properties.Indexed (IProp)
+import Halogen.HTML.Events (EventProp)
+import Halogen.HTML.Events.Indexed (IEventProp)
 
-import Halogen
-import Halogen.Util (appendToBody, onLoad)
-import Halogen.HTML.Core (prop, propName, attrName)
-import Halogen.HTML.Indexed as H
-import Halogen.HTML.Events.Indexed.Extra as E
-import Halogen.HTML.Events.Handler (preventDefault, stopPropagation, EventHandler) as E
-import Halogen.HTML.Properties.Indexed.Extra as P
-import Halogen.HTML.CSS.Indexed (style) as P
-import Halogen.HTML.Events.Forms.Extra (onFilesChange, onFilesDrop) as E
-
-import DOM (DOM)
-import DOM.HTML.Types (htmlElementToEventTarget)
-import DOM.Event.EventTarget (dispatchEvent)
-import DOM.Event.Types (EventType, MouseEvent, mouseEventToEvent)
-import DOM.Event.EventTypes (click) as EventTypes
-import DOM.HTML.Types (HTMLElement)
 import DOM.File.Types (FileList())
-import DOM.File.FileList as FileList
-
-import CSS as CSS
-
 import Unsafe.Coerce (unsafeCoerce)
 
-foreign import newMouseEvent :: EventType -> MouseEvent
+onFilesDrop
+  :: ∀ r i.
+     (FileList -> EventHandler i)
+  -> IProp r i
+onFilesDrop f = unsafeCoerce onFilesDrop'
+  where
+  onFilesDrop' = handler' (eventName "drop") handle
+    where
+    handle { dataTransfer } =
+      either
+        (const (pure Nothing))
+        (\files -> preventDefault
+                *> stopPropagation
+                *> (Just <$> f files))
+        (unsafeReadTagged "FileList" =<< prop "files" (toForeign dataTransfer))
 
+onDragEnter :: ∀ r i. IEventProp r () i
+onDragEnter = unsafeCoerce onDragEnter'
+  where
+    onDragEnter' :: EventProp () i
+    onDragEnter' = handler (eventName "dragenter")
 
-data Query a
-  = OpenFilePicker a
-  | FilesSelected FileList a
-  | FilesDropped FileList a
-  | SetUploadElement HTMLElement a
-  | SetDragOver Boolean a
+onDragLeave :: ∀ r i. IEventProp r () i
+onDragLeave = unsafeCoerce onDragLeave'
+  where
+    onDragLeave' :: EventProp () i
+    onDragLeave' = handler (eventName "dragleave")
 
-setDragOver :: ∀ a. Boolean -> a -> Query a
-setDragOver = SetDragOver
+onDragOver :: ∀ r i. IEventProp r () i
+onDragOver = unsafeCoerce onDragOver'
+  where
+    onDragOver' :: EventProp () i
+    onDragOver' = handler (eventName "dragover")
 
-filesSelected :: ∀ a. FileList -> a -> Query a
-filesSelected = FilesSelected
+onDragEnd :: ∀ r i. IEventProp r () i
+onDragEnd = unsafeCoerce onDragEnd'
+  where
+    onDragEnd' :: EventProp () i
+    onDragEnd' = handler (eventName "dragend")
 
-filesDropped :: ∀ a. FileList -> a -> Query a
-filesDropped = FilesDropped
-
-openFilePicker :: ∀ a. a -> Query a
-openFilePicker = OpenFilePicker
-
-
-type State =
-  { uploadElement :: Maybe HTMLElement
-  , dragover :: Boolean
-  , options :: Options
-  , files :: Maybe FileList
-  }
-
-initialState :: Options -> State
-initialState options =
-  { uploadElement: Nothing
-  , dragover: false
-  , files: Nothing
-  , options
-  }
-
-
-type Options
-  = { view :: { dragover :: Boolean
-              , multiple :: Boolean
-              } -> ComponentHTML Query
-    , multiple :: Boolean
-    }
-
-defaultOptions :: Options
-defaultOptions
-  = { view: defaultView
-    , multiple: true
-    }
-
-defaultView
-  :: { dragover :: Boolean, multiple :: Boolean }
-  -> ComponentHTML Query
-defaultView { multiple, dragover } =
-  H.div_
-    [ H.button
-      [ E.onClick (E.input_ openFilePicker) ]
-      [ H.text if multiple
-               then "Select a file"
-               else "Select some files"
-      ]
-    , H.div
-        dropHandlers
-        [ H.p_
-            [ H.text if dragover
-                     then "DROP IT!"
-                     else "Or just drop it here"
-            ]
-        ]
-    ]
-
-dropHandlers :: ∀ r. Array (P.IProp r (Query Unit))
-dropHandlers =
-  [ E.onDragEnter
-      \_ -> E.preventDefault
-         *> E.stopPropagation
-         $> action (setDragOver true)
-  , E.onDragOver
-      \_ -> E.preventDefault
-         *> E.stopPropagation
-         $> action (setDragOver true)
-  , E.onDragExit
-      \_ -> E.preventDefault
-         *> E.stopPropagation
-         $> action (setDragOver false)
-  , E.onFilesDrop
-      \files -> E.preventDefault
-             *> E.stopPropagation
-             $> action (filesDropped files)
-  ]
-
-
-ui :: ∀ m eff. (MonadEff (dom :: DOM, err :: EXCEPTION, console :: CONSOLE | eff) m)
-   => Component State Query m
-ui = component render eval
-
-render :: ∀ m. State -> ComponentHTML Query
-render state =
-  H.div_
-    [ H.input
-      [ P.inputType P.InputFile
-      , P.multiple state.options.multiple
-      , E.onFilesChange (E.input filesSelected)
-      , P.initializer (action <<< SetUploadElement)
-      , P.style do
-          CSS.display CSS.displayNone
-      ]
-    , state.options.view
-        { dragover: state.dragover
-        , multiple: state.options.multiple
-        }
-    ]
-
-eval :: ∀ m eff. (MonadEff (dom :: DOM, err :: EXCEPTION, console :: CONSOLE | eff) m)
-     => Natural Query (ComponentDSL State Query m)
-eval (OpenFilePicker next) = next <$ do
-  gets _.uploadElement
-    >>= traverse_
-          (htmlElementToEventTarget
-             >>> dispatchEvent
-                  (mouseEventToEvent (newMouseEvent EventTypes.click))
-             >>> liftEff')
-
-eval (SetUploadElement element next) = next <$ do
-  modify (_ { uploadElement = Just element })
-eval (FilesDropped files next) = next <$ do
-  modify (_ { dragover = false })
-eval (FilesSelected _ next) = pure next
-eval (SetDragOver dragover next) = next <$ do
-  modify (_ { dragover = dragover })
+onDragExit :: ∀ r i. IEventProp r () i
+onDragExit = unsafeCoerce onDragExit'
+  where
+    onDragExit' :: EventProp () i
+    onDragExit' = handler (eventName "dragexit")

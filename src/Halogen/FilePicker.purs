@@ -8,7 +8,7 @@ module Halogen.FilePicker
   , multiple
   ) where
 
-import Prelude
+import Prelude (Unit, void, (>>>), (<<<), map, pure, const, ($), (<>))
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Bind ((=<<))
@@ -17,15 +17,12 @@ import Data.Foreign.Index (prop) as Foreign
 import Data.Either (either)
 import Data.Maybe (Maybe(..))
 
-import Halogen
+import Halogen (Prop, HTML)
 import Halogen.HTML.Core (handler', eventName, propName, attrName, prop)
-import Halogen.HTML.Events.Indexed as E
-import Halogen.HTML.Events.Forms as E
-import Halogen.HTML.Events.Handler (EventHandler(), preventDefault, stopPropagation)
+import Halogen.HTML.Events.Handler (EventHandler())
 import Halogen.HTML.Indexed as H
 import Halogen.HTML.Properties.Indexed (I)
 import Halogen.HTML.Properties.Indexed as P
-import Halogen.HTML.CSS.Indexed (style) as P
 
 import DOM.File.Types (FileList)
 import DOM.HTML.Types (HTMLElement, htmlElementToEventTarget)
@@ -47,7 +44,7 @@ filePicker props =
 multiple :: ∀ r i. Boolean -> P.IProp (multiple :: P.I | r) i
 multiple = unsafeCoerce multiple'
   where
-    multiple' :: ∀ i. Boolean -> Prop i
+    multiple' :: ∀ a. Boolean -> Prop a
     multiple' = prop (propName "multiple") (Just $ attrName "multiple")
 
 onFilesChange
