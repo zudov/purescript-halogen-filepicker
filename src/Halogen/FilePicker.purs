@@ -5,7 +5,6 @@ module Halogen.FilePicker
   , openFilePicker
   , initFilePicker
   , onFilesChange
-  , multiple
   ) where
 
 import Prelude (Unit, void, (>>>), (<<<), map, pure, const, ($), (<>))
@@ -43,13 +42,6 @@ filePicker
 filePicker props =
   H.input
     ([ P.inputType P.InputFile ] <> unsafeCoerce props)
-
--- | TODO: Move to purescript-halogen
-multiple :: ∀ r i. Boolean -> P.IProp (multiple :: P.I | r) i
-multiple = unsafeCoerce multiple'
-  where
-    multiple' :: ∀ a. Boolean -> Prop a
-    multiple' = prop (propName "multiple") (Just $ attrName "multiple")
 
 -- | Gives a `FileList` to the handler every time the user selects the files from
 -- | the file picker.

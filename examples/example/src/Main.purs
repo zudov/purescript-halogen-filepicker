@@ -15,6 +15,7 @@ import Halogen.Util (appendToBody, onLoad)
 import Halogen.HTML.Events.Indexed as E
 import Halogen.HTML.Events.Handler (preventDefault, stopPropagation)
 import Halogen.HTML.Indexed as H
+import Halogen.HTML.Properties.Indexed (multiple) as P
 import Halogen.HTML.CSS.Indexed (style) as P
 
 import DOM.File.Types (FileList)
@@ -22,7 +23,7 @@ import DOM.File.FileList as FileList
 
 import CSS as CSS
 
-import Halogen.FilePicker (FilePicker, filePicker, openFilePicker, initFilePicker, onFilesChange, multiple)
+import Halogen.FilePicker (FilePicker, filePicker, openFilePicker, initFilePicker, onFilesChange)
 import Halogen.FileDrop (onFilesDrop, onDragEnter, onDragOver, onDragLeave)
 
 type State
@@ -52,7 +53,7 @@ ui = component render eval
           [ H.text "A nicer looking filepicker" ]
       , filePicker
           [ onFilesChange (E.input (SetFiles <<< Just))
-          , multiple true
+          , P.multiple true
           , P.style do
               CSS.display CSS.displayNone
           , initFilePicker (action <<< SetFilePicker)
