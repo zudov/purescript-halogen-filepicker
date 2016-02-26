@@ -1,10 +1,11 @@
 module Main where
 
-import Prelude (Unit, ($), bind, unit, pure, const, (>>>), (>>=), show, (<>), (<<<))
+import Prelude (Unit, ($), bind, unit, pure, const, (>>>), (>>=), show, (<>), (<<<), (<$>))
 import Control.Apply ((*>))
 import Control.Monad.Aff (Aff(), runAff)
 import Control.Monad.Eff (Eff())
 import Control.Monad.Eff.Exception (throwException)
+import Data.Nullable (toMaybe) as Nullable
 import Data.Maybe (Maybe(..))
 import Data.Functor ((<$), ($>))
 import Data.Foldable (traverse_)
@@ -20,11 +21,11 @@ import Halogen.HTML.CSS.Indexed (style) as P
 
 import DOM.File.Types (FileList)
 import DOM.File.FileList as FileList
+import DOM.Event.DragEvent.DataTransfer (files) as DataTransfer
 
 import CSS as CSS
 
 import Halogen.FilePicker (FilePicker, filePicker, openFilePicker, initFilePicker, onFilesChange)
-import Halogen.FileDrop (onFilesDrop, onDragEnter, onDragOver, onDragLeave)
 
 type State
   = { files :: Maybe FileList
@@ -59,19 +60,22 @@ ui = component render eval
           , initFilePicker (action <<< SetFilePicker)
           ]
       , H.div
-          [ onDragEnter
+          [ E.onDragEnter
               \_ -> preventDefault
                  *> stopPropagation
                  $> action (SetDragOver true)
-          , onDragOver
+          , E.onDragOver
               \_ -> preventDefault
                  *> stopPropagation
                  $> action (SetDragOver true)
-          , onDragLeave
+          , E.onDragLeave
               \_ -> preventDefault
                  *> stopPropagation
                  $> action (SetDragOver false)
-          , onFilesDrop (E.input (SetFiles <<< Just))
+          , E.onDrop
+              \ev -> preventDefault
+                  *> stopPropagation
+                  $> action (SetFiles (DataTransfer.files <$> Nullable.toMaybe ev.dataTransfer))
           ]
           [ H.text if dragover
                    then "DROP IT!"
